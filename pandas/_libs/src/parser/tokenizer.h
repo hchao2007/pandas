@@ -27,6 +27,7 @@ See LICENSE for the license
 #define ERROR_INVALID_CHARS 3
 
 #include "../headers/stdint.h"
+#include "../inline_helper.h"
 
 #include "khash.h"
 
@@ -38,21 +39,10 @@ See LICENSE for the license
 #define REACHED_EOF 1
 #define CALLING_READ_FAILED 2
 
-#ifndef P_INLINE
-#if defined(__GNUC__)
-#define P_INLINE static __inline__
-#elif defined(_MSC_VER)
-#define P_INLINE
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-#define P_INLINE static inline
-#else
-#define P_INLINE
-#endif
-#endif
 
 #if defined(_MSC_VER)
 #define strtoll _strtoi64
-#endif
+#endif  // _MSC_VER
 
 /*
 
@@ -85,7 +75,7 @@ See LICENSE for the license
 #define TRACE(X) printf X;
 #else
 #define TRACE(X)
-#endif
+#endif  // VERBOSE
 
 #define PARSER_OUT_OF_MEMORY -1
 
@@ -152,6 +142,7 @@ typedef struct parser_t {
     int64_t *word_starts;   // where we are in the stream
     int64_t words_len;
     int64_t words_cap;
+    int64_t max_words_cap;  // maximum word cap encountered
 
     char *pword_start;      // pointer to stream start of current field
     int64_t word_start;     // position start of current field
@@ -223,10 +214,10 @@ typedef struct coliter_t {
 void coliter_setup(coliter_t *self, parser_t *parser, int i, int start);
 coliter_t *coliter_new(parser_t *self, int i);
 
-#define COLITER_NEXT(iter, word)                          \
-    do {                                                  \
-        const int64_t i = *iter.line_start++ + iter.col;      \
-        word = i < *iter.line_start ? iter.words[i] : ""; \
+#define COLITER_NEXT(iter, word)                           \
+    do {                                                   \
+        const int64_t i = *iter.line_start++ + iter.col;   \
+        word = i >= *iter.line_start ? "" : iter.words[i]; \
     } while (0)
 
 parser_t *parser_new(void);
@@ -246,8 +237,6 @@ void parser_free(parser_t *self);
 void parser_del(parser_t *self);
 
 void parser_set_default_options(parser_t *self);
-
-void debug_print_parser(parser_t *self);
 
 int tokenize_nrows(parser_t *self, size_t nrows);
 
@@ -271,11 +260,12 @@ uint64_t str_to_uint64(uint_state *state, const char *p_item, int64_t int_max,
 int64_t str_to_int64(const char *p_item, int64_t int_min, int64_t int_max,
                      int *error, char tsep);
 double xstrtod(const char *p, char **q, char decimal, char sci, char tsep,
-               int skip_trailing);
-double precise_xstrtod(const char *p, char **q, char decimal, char sci,
-                       char tsep, int skip_trailing);
+               int skip_trailing, int *error, int *maybe_int);
+double precise_xstrtod(const char *p, char **q, char decimal,
+                       char sci, char tsep, int skip_trailing,
+                       int *error, int *maybe_int);
 double round_trip(const char *p, char **q, char decimal, char sci, char tsep,
-                  int skip_trailing);
+                  int skip_trailing, int *error, int *maybe_int);
 int to_boolean(const char *item, uint8_t *val);
 
 #endif  // PANDAS__LIBS_SRC_PARSER_TOKENIZER_H_
